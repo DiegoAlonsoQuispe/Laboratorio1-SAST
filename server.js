@@ -10,9 +10,9 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(cookieParser());
 
-// VULNERABILIDAD #1: Hashing débil (MD5) para credenciales
+// CORRECCIÓN #1: Migración de MD5 a SHA-256 para hashing seguro
 function hashPassword(text) {
-  return crypto.createHash('md5').update(text).digest('hex');
+  return crypto.createHash('sha256').update(text).digest('hex');
 }
 
 // Datos de prueba
@@ -32,21 +32,24 @@ app.post('/api/login', (req, res) => {
     return res.status(401).json({ message: 'Credenciales incorrectas' });
   }
 
-  // VULNERABILIDAD #2: Cookie de sesión sin banderas de seguridad (httpOnly/secure)
-  res.cookie('auth_token', user.id, {
-    httpOnly: false,
-    secure: false
+  // CORRECCIÓN #2: Endurecimiento de la Cookie de sesión con banderas de seguridad
+  const sessionToken = crypto.randomUUID();
+  res.cookie('auth_token', sessionToken, {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'strict'
   });
 
   res.json({ message: 'Autenticación exitosa', userId: user.id });
 });
 
-// VULNERABILIDAD #3: Revelación de stack trace en errores
+// CORRECCIÓN #3: Manejo seguro de errores sin revelar stack traces
 app.get('/api/debug-error', (req, res) => {
   try {
     throw new Error('Error crítico en el servidor de base de datos');
   } catch (err) {
-    res.status(500).send(err.stack);
+    console.error(err);
+    res.status(500).json({ error: 'Ocurrió un error interno. Intente de nuevo más tarde.' });
   }
 });
 
